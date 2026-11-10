@@ -25,7 +25,7 @@ REGIONS = {
     "coat": "clothing", "pants": "clothing", "skirt": "clothing",
     "hair": "hair",
     "hat": "accessory", "glasses": "accessory", "bag": "accessory", "scarf": "accessory",
-    "necklace": "accessory", "tie": "accessory",
+    "necklace": "accessory", "tie": "clothing",
 }
 
 
@@ -170,6 +170,15 @@ def contact_sheet(rows, out_path, n=24, thumb=200):
     sheet.save(out_path)
 
 
+FIELDS = ["pair_id", "video_id", "split", "frame_a", "frame_b", "label", "error_type",
+          "region", "mask_path", "delta_e"]
+
+
+def write_manifest(rows, out):
+    with open(os.path.join(out, "manifest.csv"), "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=FIELDS); w.writeheader(); w.writerows(rows)
+
+
 # ---------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser()
@@ -199,7 +208,14 @@ def main():
                 for i, v in enumerate(shuffled)}
 
     rows, sheet_rows, stats = [], [], {"pairs_sampled": 0, "no_region": 0, "too_subtle": 0}
+    man = os.path.join(args.out, "manifest.csv")
+    if os.path.exists(man):  # resume: keep rows from videos already done
+        rows = list(csv.DictReader(open(man)))
+        print(f"resuming: {len({r['video_id'] for r in rows})} videos already done")
+    done = {r["video_id"] for r in rows}
     for vf, vid in zip(vids, vid_ids):
+        if vid in done:
+            continue
         pairs = sample_pairs(os.path.join(args.videos, vf), args.pairs_per_video, args.gap, rng)
         stats["pairs_sampled"] += len(pairs)
         print(f"{vid}: {len(pairs)} pairs ({split_of[vid]})")
@@ -235,11 +251,9 @@ def main():
                              delta_e=round(de, 1), **common))
             if len(sheet_rows) < 24:
                 sheet_rows.append((fa, edited, fb, mask, f"{pid} {name} dE={de:.0f}"))
+        write_manifest(rows, args.out)
 
-    fields = ["pair_id", "video_id", "split", "frame_a", "frame_b", "label", "error_type",
-              "region", "mask_path", "delta_e"]
-    with open(os.path.join(args.out, "manifest.csv"), "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=fields); w.writeheader(); w.writerows(rows)
+    write_manifest(rows, args.out)
     contact_sheet(sheet_rows, os.path.join(args.out, "contact_sheet.jpg"))
 
     summary = {"videos": len(vids), "examples": len(rows), **stats,
