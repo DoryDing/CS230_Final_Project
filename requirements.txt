@@ -1,0 +1,11 @@
+torch
+torchvision
+transformers>=4.45
+accelerate
+scenedetect[opencv]
+opencv-python
+numpy
+pillow
+scikit-learn
+pandas
+matplotlib

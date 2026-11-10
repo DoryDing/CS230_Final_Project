@@ -1,0 +1,135 @@
+\documentclass{article}
+
+% CS230 project milestone template, built on the official NeurIPS 2026 style file.
+% It uses the same setup as proposal_template/ and final_report_template/ so the
+% proposal, milestone, and final report share one look. Keep the [final] option: it
+% prints the author block and omits line numbers.
+% natbib is loaded by the style file; this makes citations numeric, e.g. [1, 2].
+% Remove the next line for author-year citations, e.g. (Vaswani et al., 2017).
+\PassOptionsToPackage{numbers,compress}{natbib}
+\usepackage[final]{neurips_2026}
+
+% to avoid loading the natbib package, add option nonatbib:
+%    \usepackage[final,nonatbib]{neurips_2026}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{xcolor}         % colors
+\usepackage{graphicx}       % figures
+% Page limit for the milestone, used in the text below. Update it here only.
+\newcommand{\pagelimit}{3}
+
+% Submission: upload this PDF on Gradescope.
+
+% State the full title of your project. Keep the same title across the milestone and
+% the final report where possible.
+\title{Formatting instructions for CS230 project milestones}
+
+% List the full name and SUNet ID of every team member.
+% Use \And between authors to let LaTeX decide where to break the line, and
+% \AND to force a line break at that point.
+\author{%
+  First Author \\
+  \texttt{sunetid1@stanford.edu} \\
+  \And
+  Second Author \\
+  \texttt{sunetid2@stanford.edu} \\
+  %% examples of more authors
+  %% \And
+  %% Third Author \\
+  %% \texttt{email} \\
+  %% \AND
+  %% Fourth Author \\
+  %% \texttt{email} \\
+}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+The milestone is limited to \pagelimit~pages, excluding references. Write it as an
+early draft of your final report so that you can reuse most of the text later. The
+intended audience is the course staff, so do not spend space explaining standard
+material. Explain the problem and why it is important or interesting, and be explicit
+about the input and output: ``The input to our algorithm is an \{image, text prompt,
+audio clip, patient record, video, etc.\}. We then use a \{CNN, transformer, diffusion
+model, graph neural network, etc.\} to output a predicted \{label, caption, segmentation
+mask, next action, etc.\}.'' Your final report must be on the same topic as this
+milestone, so if the project has changed since your proposal, say what changed and why.
+
+\section{Dataset}
+Describe your dataset: where it comes from, roughly how many training, validation, and
+test examples you have, and its license if it has one. Cite the dataset if it is from
+prior work, such as ImageNet \cite{deng2009imagenet}. Say what you
+have actually downloaded, collected, cleaned, or labeled so far, and what preprocessing
+and data augmentation you have implemented, such as resizing or normalizing images,
+tokenizing text, resampling audio, or discretizing time series. If you build on
+pretrained encoders or embeddings, say which ones and what they are applied to. You may
+show a few samples from your data here.
+
+\section{Approach}
+Describe the steps you have completed so far. If you are implementing an algorithm, you
+should have started the implementation. We would like to see a model description and a training strategy (loss function for instance). Include
+the relevant notation; formulas from the lectures are fine. Name the baseline you are
+comparing against, and cite the methods you build on with \verb+\cite+, e.g.\ ResNet
+\cite{he2016deep} or the Transformer \cite{vaswani2017attention}.
+
+\paragraph{Remaining work.}
+Describe precisely the remaining work you expect to complete before the final report,
+and in what order, so that the TAs can give you feedback on the plan. Be brief: a short
+paragraph or a few bullet points is enough.
+
+\section{Partial Results}
+Report whatever you have run so far, even if preliminary: the data you have collected and
+processed, the performance of the baseline you have implemented and evaluated, and
+preliminary results of your own method, if any. State your primary metric and report it
+on held-out data rather than the training set. A small table such as
+Table~\ref{tab:results} or a single figure is enough at this stage; see the commented-out
+block below for how to include a figure. If a result is surprising or an assumption did
+not hold, say so briefly and explain what you will change.
+
+\begin{table}[h]
+  \centering
+  \begin{tabular}{lc}
+    \toprule
+    Method & Validation accuracy \\
+    \midrule
+    Baseline   & 0.71 \\
+    Our method & 0.74 \\
+    \bottomrule
+  \end{tabular}
+  \caption{Example results table. Replace with your own numbers and metric.}
+  \label{tab:results}
+\end{table}
+
+% \begin{figure}[h]
+%   \centering
+%   \includegraphics[width=0.6\linewidth]{training_curve.pdf}
+%   \caption{Training and validation loss per epoch for the baseline.}
+%   \label{fig:curve}
+% \end{figure}
+
+\section*{References}
+References do not count toward the page limit.
+Include the papers you cite above, the dataset, and any code or libraries you build on.
+% Acceptable formats
+% include MLA, APA, and IEEE; any style is fine as long as it is consistent and each entry
+% has author(s), title, venue, publisher, and year.
+
+% The list below is generated by BibTeX from references.bib; run
+% "latexmk -pdf main.tex" (or pdflatex, bibtex, pdflatex, pdflatex).
+\renewcommand{\bibsection}{}   % the "References" heading is already typeset above
+\medskip
+{\small
+\bibliographystyle{plainnat}
+\bibliography{references}
+}
+
+\end{document}

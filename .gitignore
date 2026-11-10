@@ -1,0 +1,21 @@
+venv/
+.idea/
+__pycache__/
+*.pyc
+.DS_Store
+# data lives in Google Drive (goof/), never in git
+data/
+videos/
+*.mp4
+*.mov
+*.npy
+*.pt
+# LaTeX build files
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.fdb_latexmk
+*.fls
+*.synctex.gz
