@@ -160,8 +160,8 @@ def contact_sheet(rows, out_path, n=24, thumb=200):
     if not rows:
         return
     sheet = Image.new("RGB", (thumb * 3, thumb * len(rows)), "white")
-    for i, (a, b, m, title) in enumerate(rows):
-        overlay = b.copy()
+    for i, (a, b, orig_b, m, title) in enumerate(rows):
+        overlay = orig_b.copy()  # mask shown on the unedited frame
         overlay[m] = (0.5 * overlay[m] + 0.5 * np.array([255, 0, 0])).astype(np.uint8)
         for j, im in enumerate([a, b, overlay]):
             t = Image.fromarray(im); t.thumbnail((thumb, thumb))
@@ -206,6 +206,13 @@ def main():
         for k, (fa, fb) in enumerate(pairs):
             fa, fb = resize_short(fa), resize_short(fb)
             regions = seg(fb)
+            # the same region must be visible in frame_a at a similar size,
+            # otherwise the "consistent" pair does not show the same thing (e.g. camera moved)
+            regions_a = {}
+            for n_a, m_a in seg(fa):
+                regions_a[n_a] = max(regions_a.get(n_a, 0.0), float(m_a.mean()))
+            regions = [(n, m) for n, m in regions
+                       if n in regions_a and 0.5 <= regions_a[n] / max(m.mean(), 1e-6) <= 2.0]
             if not regions:
                 stats["no_region"] += 1
                 continue
@@ -227,7 +234,7 @@ def main():
             rows.append(dict(pair_id=pid + "_e", frame_b=pb1, label=1, error_type=REGIONS[name],
                              delta_e=round(de, 1), **common))
             if len(sheet_rows) < 24:
-                sheet_rows.append((fa, edited, mask, f"{pid} {name} dE={de:.0f}"))
+                sheet_rows.append((fa, edited, fb, mask, f"{pid} {name} dE={de:.0f}"))
 
     fields = ["pair_id", "video_id", "split", "frame_a", "frame_b", "label", "error_type",
               "region", "mask_path", "delta_e"]
