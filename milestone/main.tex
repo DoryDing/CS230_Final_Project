@@ -60,7 +60,7 @@ reliable.
 \section{Dataset}
 \textbf{Sources.} Commercial AI dramas have unclear licenses and already contain \emph{unlabeled}
 errors, so they cannot provide clean training pairs. Instead we build pairs from
-\XX{41} openly licensed Pixabay clips of people~\cite{pixabay} and \XX{2} vertical clips we generated
+40 openly licensed Pixabay clips of people~\cite{pixabay} and 2 vertical clips we generated
 with Kling~\cite{kling} (prompts in the style of short-drama shots). Kling's free-tier clips carry a
 small watermark, which appears identically in both frames of a pair.
 
@@ -82,15 +82,16 @@ Each pair therefore yields one consistent and one error example sharing the same
 the edit mask serves as the localization label.
 
 \textbf{Splits and size.} We split 80/10/10 \emph{by source video}, so frames of one video never appear
-in two splits. The pilot set has \XX{N} examples (\XX{N/2} consistent, \XX{N/2} errors), of which
-\XX{train/val/test} are train/val/test; errors are \XX{x}\% clothing and \XX{y}\% accessory. About
-\XX{1/3} of sampled pairs survive filtering (\XX{k} lacked a region visible in both frames, \XX{m} edits
-were too subtle). For the encoder, frames are resized to a short side of 224\,px with the aspect ratio
+in two splits. From 1{,}680 sampled frame pairs, 27\% survive filtering (723 lacked a region visible in both
+frames at a similar size; 501 edits were too subtle), giving a pilot set of 912 examples (456 consistent,
+456 errors) from 42 videos: 694/120/98 train/val/test examples (34/4/4 videos). Errors are 71\% clothing,
+20\% hair, and 9\% accessory. For the encoder, frames are resized to a short side of 224\,px with the aspect ratio
 preserved (long side up to 392\,px, a multiple of the 14\,px patch size) and normalized with ImageNet
 statistics.
 
 \textbf{Limitations.} All current errors are color changes; real errors also include shape changes and
-added or missing accessories. Hair was rarely detected with our prompts.
+added or missing accessories. The test split is small (49 pairs from 4 videos), so
+differences of a few points are within noise.
 
 \section{Approach}
 \textbf{Notation.} A pair is $(x_a, x_b)$ with label $y\in\{0,1\}$, error type $c$, and mask
@@ -128,7 +129,8 @@ We will use AdamW, train only the comparison module and heads, and select checkp
 \XX{Status: the module and losses are implemented; training has not started.}
 
 \paragraph{Remaining work.}
-(1) Train the cross-attention model on the pilot set and compare it with B0--B2 (same test pairs).
+(1) Add color-sensitive patch features (Section~4), train the cross-attention model on the pilot set,
+and compare it with B0--B2 on the same test pairs.
 (2) Make errors harder and more realistic: Stable Diffusion inpainting~\cite{rombach2022high} for shape
 and texture changes, removed or added accessories, and inpainted no-error examples, to rule out
 artifact shortcuts.
@@ -141,14 +143,14 @@ and IoU of the heatmap with $M$.
 
 \section{Partial Results}
 \textbf{Data.} The pipeline runs end to end on a Colab T4 (about 2\,min per video) and produced the
-pilot set in Section~2. \XX{Figure~\ref{fig:examples} shows generated pairs.}
-% TODO: export 2-3 rows of contact_sheet.jpg as examples.png and uncomment.
-% \begin{figure}[h]
-%   \centering
-%   \includegraphics[width=0.85\linewidth]{examples.png}
-%   \caption{Generated pairs: reference frame, edited frame (synthetic error), and edit mask.}
-%   \label{fig:examples}
-% \end{figure}
+pilot set in Section~2; Figure~\ref{fig:examples} shows examples.
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\linewidth]{examples.png}
+  \caption{Pilot pairs. Each example shows the reference frame, the second frame, and the edit mask (red)
+  on the unedited second frame. The first two are synthetic errors; the last is a consistent pair.}
+  \label{fig:examples}
+\end{figure}
 
 \textbf{Baselines.} Our primary metric is F1 for error detection on the \emph{test} split (held-out
 videos), with thresholds chosen on validation (Table~\ref{tab:results}).
@@ -160,23 +162,37 @@ videos), with thresholds chosen on validation (Table~\ref{tab:results}).
     \toprule
     Method & F1 & Precision & Recall & AUROC \\
     \midrule
-    B0 color histogram          & \XX{--} & \XX{--} & \XX{--} & \XX{--} \\
-    B1 global DINOv2 (no train) & \XX{--} & \XX{--} & \XX{--} & \XX{--} \\
-    B2 whole-frame logistic reg.& \XX{--} & \XX{--} & \XX{--} & \XX{--} \\
+    Always predict ``error''    & 0.67 & 0.50 & 1.00 & 0.50 \\
+    B0 color histogram          & 0.64 & 0.55 & 0.78 & 0.61 \\
+    B1 global DINOv2 (no train) & 0.67 & 0.51 & 1.00 & 0.53 \\
+    B2 whole-frame logistic reg.& 0.67 & 0.50 & 1.00 & 0.55 \\
     \midrule
-    R1 oracle-mask DINOv2       & \XX{--} & \XX{--} & \XX{--} & \XX{--} \\
+    R1 oracle-mask DINOv2       & 0.70 & 0.53 & 1.00 & 0.65 \\
+    R2 oracle-mask mean color   & \XX{--} & \XX{--} & \XX{--} & \XX{--} \\
     \bottomrule
   \end{tabular}
-  \caption{Error detection on the pilot test split (\XX{n} pairs from \XX{v} held-out videos).
-  R1 uses the ground-truth mask and is a reference, not a baseline.}
+  \caption{Error detection on the pilot test split (98 examples from 4 held-out videos, 50\% errors).
+  R1/R2 use the ground-truth mask and are references, not baselines.}
   \label{tab:results}
 \end{table}
 
-\XX{Discussion to write once numbers are in: (a) how close the global baselines get, which tells us
-how easy pure color edits are; (b) recall by edit strength $\Delta E$ (results.json, recall\_by\_dE),
-i.e.\ whether subtle changes are missed; (c) the gap between B1/B2 and R1, which is the room a model
-that localizes the change can capture. If even B0 is near-perfect, say so: the synthetic color-only
-task is too easy, which motivates the harder inpainted errors in Remaining Work.}
+\textbf{A surprising result: frozen DINOv2 features barely see color changes.} We expected the
+recolored errors to be easy. Instead, every baseline is close to chance: B1 and B2 reach AUROC 0.53 and
+0.55, and their validation-selected thresholds collapse to predicting ``error'' for every pair, so their
+F1 of 0.67 equals the trivial all-positive classifier. Even with the true error location (R1), DINOv2
+features reach only AUROC 0.65. Raw color statistics (B0) do slightly better than global DINOv2 despite
+being confounded by pose and framing changes. Our explanation is that DINOv2 is trained with strong
+color-jitter augmentation~\cite{oquab2023dinov2}, which makes its features largely invariant to hue,
+the very property our task depends on. \XX{R2 (mean color inside the true mask) reaches AUROC --,
+confirming that the signal is present in the pixels and lost by the encoder.}
+
+\textbf{What we will change.} Our assumption that a frozen semantic encoder suffices did not hold.
+The comparison module will receive color-sensitive features next to the DINOv2 tokens, namely per-patch
+Lab mean and standard deviation (and possibly features from early encoder layers), and we will try
+fine-tuning the last DINOv2 blocks. DINOv2 remains useful for \emph{matching} corresponding regions
+across pose change, while the color features detect \emph{what} changed. Real errors also involve shape
+and presence changes, where semantic features should matter more, so the inpainted errors in Remaining
+Work will test both components.
 
 \section*{References}
 \medskip

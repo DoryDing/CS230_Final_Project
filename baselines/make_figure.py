@@ -16,6 +16,8 @@ def main():
     ap.add_argument("--n", type=int, default=3)
     ap.add_argument("--h", type=int, default=260, help="height of each tile in px")
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--layout", choices=["row", "rows"], default="rows",
+                    help="row: examples side by side (portrait clips); rows: one example per row (landscape clips)")
     args = ap.parse_args()
     rows = list(csv.DictReader(open(os.path.join(args.data, "manifest.csv"))))
     rng = random.Random(args.seed)
@@ -48,19 +50,22 @@ def main():
                  if r["label"] == "1" else "consistent (no error)")
         tiles.append(([a, b, Image.fromarray(ov)], label))
 
-    # examples side by side in one row (fits the page width); 3 tiles per example
     gap, big_gap, cap = 3, 14, 16
     widths = [sum(t.width for t in ims) + 2 * gap for ims, _ in tiles]
-    W = sum(widths) + big_gap * (len(tiles) - 1)
-    sheet = Image.new("RGB", (W, args.h + cap), "white")
+    if args.layout == "row":
+        sheet = Image.new("RGB", (sum(widths) + big_gap * (len(tiles) - 1), args.h + cap), "white")
+        pos = []; x0 = 0
+        for w in widths:
+            pos.append((x0, 0)); x0 += w + big_gap
+    else:
+        sheet = Image.new("RGB", (max(widths), len(tiles) * (args.h + cap + gap)), "white")
+        pos = [(0, i * (args.h + cap + gap)) for i in range(len(tiles))]
     d = ImageDraw.Draw(sheet)
-    x0 = 0
-    for (ims, label), w in zip(tiles, widths):
+    for (ims, label), (x0, y0) in zip(tiles, pos):
         x = x0
         for t in ims:
-            sheet.paste(t, (x, 0)); x += t.width + gap
-        d.text((x0 + 2, args.h + 2), label, fill=(0, 0, 0))
-        x0 += w + big_gap
+            sheet.paste(t, (x, y0)); x += t.width + gap
+        d.text((x0 + 2, y0 + args.h + 2), label, fill=(0, 0, 0))
     sheet.save(args.out)
     print("saved", args.out, sheet.size, [p["pair_id"] for p in picks])
 
