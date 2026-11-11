@@ -13,6 +13,8 @@ Methods
   B2  dino-logreg     logistic regression on [|ea-eb|, ea*eb] of DINOv2 CLS (+mean patch)
   R1  dino-mask (oracle) 1 - cosine of DINOv2 patch features pooled inside the GT edit mask.
       Uses the ground-truth mask, so it is a reference for "perfect localization", not a fair baseline.
+  R2  color-mask (oracle) distance of mean Lab color inside the GT mask. Diagnostic: shows whether the
+      color signal is present at all when DINOv2 features (trained with color jitter) ignore it.
 
 DINOv2 features are cached in <out>/feats.npz so re-runs are fast.
 """
@@ -86,6 +88,20 @@ def extract(rows, data, out, model_name, device):
     return cls, meanp, maskp, hist
 
 
+def mask_lab_dist(data, r):
+    """Distance between mean Lab colors inside the GT mask (diagnostic: is the color signal there?)."""
+    m = np.asarray(Image.open(os.path.join(data, r["mask_path"])).convert("L")) > 127
+    if not m.any():
+        return 0.0
+    labs = []
+    for f in (r["frame_a"], r["frame_b"]):
+        img = Image.open(os.path.join(data, f)).convert("RGB")
+        if img.size != (m.shape[1], m.shape[0]):
+            img = img.resize((m.shape[1], m.shape[0]))
+        labs.append(np.asarray(img.convert("LAB"), np.float32)[m].mean(0))
+    return float(np.linalg.norm(labs[0] - labs[1]))
+
+
 # ------------------------------------------------------------------ metrics
 def cos(a, b):
     return float(a @ b / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-8))
@@ -136,6 +152,7 @@ def main():
         "B1 dino-global (no training)": np.array([1 - cos(cls[r["frame_a"]], cls[r["frame_b"]]) for r in rows]),
         "R1 dino-mask (oracle mask)": np.array([1 - cos(maskp[(r["frame_a"], r["mask_path"])],
                                                         maskp[(r["frame_b"], r["mask_path"])]) for r in rows]),
+        "R2 color-mask (oracle mask)": np.array([mask_lab_dist(args.data, r) for r in rows]),
     }
     # B2: logistic regression on pair features, trained on TRAIN, C tuned on VAL
     from sklearn.linear_model import LogisticRegression
@@ -183,7 +200,7 @@ def main():
     plt.figure(figsize=(4.2, 3.2))
     for name, s in scores.items():
         pr, rc, _ = precision_recall_curve(y[te], s[te])
-        plt.plot(rc, pr, label=name.split(" (")[0], linestyle="--" if name.startswith("R1") else "-")
+        plt.plot(rc, pr, label=name.split(" (")[0], linestyle="--" if name.startswith("R") else "-")
     plt.xlabel("Recall"); plt.ylabel("Precision"); plt.legend(fontsize=7); plt.title("Test PR curves", fontsize=9)
     plt.tight_layout(); plt.savefig(os.path.join(args.out, "pr_curves.pdf")); plt.savefig(os.path.join(args.out, "pr_curves.png"), dpi=200)
     print("saved", os.path.join(args.out, "results.json"), "results_table.tex", "pr_curves.pdf")

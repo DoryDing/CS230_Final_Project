@@ -1,52 +1,33 @@
 \documentclass{article}
 
-% CS230 project milestone template, built on the official NeurIPS 2026 style file.
-% It uses the same setup as proposal_template/ and final_report_template/ so the
-% proposal, milestone, and final report share one look. Keep the [final] option: it
-% prints the author block and omits line numbers.
-% natbib is loaded by the style file; this makes citations numeric, e.g. [1, 2].
-% Remove the next line for author-year citations, e.g. (Vaswani et al., 2017).
+% CS230 project milestone, built on the NeurIPS 2026 style file (see proposal/final templates).
 \PassOptionsToPackage{numbers,compress}{natbib}
 \usepackage[final]{neurips_2026}
 
-% to avoid loading the natbib package, add option nonatbib:
-%    \usepackage[final,nonatbib]{neurips_2026}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
 
-\usepackage[utf8]{inputenc} % allow utf-8 input
-\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
-\usepackage{hyperref}       % hyperlinks
-\usepackage{url}            % simple URL typesetting
-\usepackage{booktabs}       % professional-quality tables
-\usepackage{amsfonts}       % blackboard math symbols
-\usepackage{nicefrac}       % compact symbols for 1/2, etc.
-\usepackage{microtype}      % microtypography
-\usepackage{xcolor}         % colors
-\usepackage{graphicx}       % figures
-% Page limit for the milestone, used in the text below. Update it here only.
-\newcommand{\pagelimit}{3}
+% Numbers still to be filled in from summary.json / results.json are marked \XX{...} (red).
+% Search for "\XX" before submitting.
+\newcommand{\XX}[1]{\textcolor{red}{#1}}
 
-% Submission: upload this PDF on Gradescope.
+\title{Spot the Goof: Learning to Detect and Repair\\Continuity Errors in AI Short Dramas}
 
-% State the full title of your project. Keep the same title across the milestone and
-% the final report where possible.
-\title{Formatting instructions for CS230 project milestones}
-
-% List the full name and SUNet ID of every team member.
-% Use \And between authors to let LaTeX decide where to break the line, and
-% \AND to force a line break at that point.
 \author{%
-  First Author \\
-  \texttt{sunetid1@stanford.edu} \\
+  Dory Ding \\
+  \texttt{dingy@stanford.edu} \\
   \And
-  Second Author \\
-  \texttt{sunetid2@stanford.edu} \\
-  %% examples of more authors
-  %% \And
-  %% Third Author \\
-  %% \texttt{email} \\
-  %% \AND
-  %% Fourth Author \\
-  %% \texttt{email} \\
+  Haoran Gao \\
+  \texttt{haoran21@stanford.edu} \\
 }
 
 \begin{document}
@@ -54,80 +35,153 @@
 \maketitle
 
 \section{Introduction}
-The milestone is limited to \pagelimit~pages, excluding references. Write it as an
-early draft of your final report so that you can reuse most of the text later. The
-intended audience is the course staff, so do not spend space explaining standard
-material. Explain the problem and why it is important or interesting, and be explicit
-about the input and output: ``The input to our algorithm is an \{image, text prompt,
-audio clip, patient record, video, etc.\}. We then use a \{CNN, transformer, diffusion
-model, graph neural network, etc.\} to output a predicted \{label, caption, segmentation
-mask, next action, etc.\}.'' Your final report must be on the same topic as this
-milestone, so if the project has changed since your proposal, say what changed and why.
+AI short dramas, vertical episodes of one to two minutes that are popular in China, are assembled from
+shots that are generated separately. As a result, a character's appearance can drift between shots:
+a red blouse becomes blue, glasses disappear, a necklace changes color. Checking every cut by hand is
+slow, and the difficulty is that appearance also changes \emph{legitimately} with camera angle,
+lighting, and pose.
+
+\textbf{Task.} The input to our algorithm is a pair of frames showing the same character in the same
+scene: a reference frame and a later frame. We use a frozen DINOv2 encoder~\cite{oquab2023dinov2} in a
+Siamese setup with a learned cross-attention comparison module to output (i) whether there is a
+continuity error, (ii) its type (clothing, accessory, hair), and (iii) a heatmap of where it is in the
+second frame.
+
+\textbf{Relation to prior work and changes since the proposal.} Recent work on multi-shot video
+generation measures character consistency with a single global score: DINO similarity of the masked
+subject~\cite{atzmon2024motion}, or cross-shot identity and style similarity in the PersonaShot
+benchmark~\cite{wang2026personashot}, which reports cross-shot consistency 25.6--50\% lower than
+per-shot consistency for current generators. Neither says \emph{what} changed or \emph{where}, and
+clothing is not measured explicitly. Our contribution is localized, typed detection of such errors.
+Following TA feedback, we now treat detection as the core of the project; repair with an existing
+inpainting model~\cite{rombach2022high} becomes a stretch goal attempted only once detection is
+reliable.
 
 \section{Dataset}
-Describe your dataset: where it comes from, roughly how many training, validation, and
-test examples you have, and its license if it has one. Cite the dataset if it is from
-prior work, such as ImageNet \cite{deng2009imagenet}. Say what you
-have actually downloaded, collected, cleaned, or labeled so far, and what preprocessing
-and data augmentation you have implemented, such as resizing or normalizing images,
-tokenizing text, resampling audio, or discretizing time series. If you build on
-pretrained encoders or embeddings, say which ones and what they are applied to. You may
-show a few samples from your data here.
+\textbf{Sources.} Commercial AI dramas have unclear licenses and already contain \emph{unlabeled}
+errors, so they cannot provide clean training pairs. Instead we build pairs from
+\XX{41} openly licensed Pixabay clips of people~\cite{pixabay} and \XX{2} vertical clips we generated
+with Kling~\cite{kling} (prompts in the style of short-drama shots). Kling's free-tier clips carry a
+small watermark, which appears identically in both frames of a pair.
+
+\textbf{Consistent pairs.} We split each video into shots with PySceneDetect~\cite{pyscenedetect} and
+sample two frames 2--5\,s apart within one continuous shot, so clothing and accessories should be
+unchanged while pose and framing vary. Grounding DINO~\cite{liu2024grounding} with text prompts
+(\emph{shirt, jacket, dress, hair, hat, glasses, bag, \dots}) and SAM~\cite{kirillov2023segment}
+(i.e., Grounded SAM~\cite{grounded_sam}) segment candidate regions. A region is kept only if it is
+detected in \emph{both} frames with an area ratio in $[0.5, 2]$; this filter removes pairs where the
+camera moved away from the person, which our first test run revealed.
+
+\textbf{Synthetic errors.} For each kept pair we create an error example by recoloring one segmented
+region in the second frame: a hue rotation of 80--280$^\circ$, or, for low-saturation garments (black,
+white, gray) where hue rotation is invisible, a color tint. The edit is blended with a feathered mask
+($\sigma=2$\,px), and edits whose mean color change inside the mask is below $\Delta E_{ab}=20$ are
+discarded as too subtle. To keep the model from detecting editing artifacts rather than errors, the
+consistent version of every pair passes through the same blend and JPEG re-encoding with a zero edit.
+Each pair therefore yields one consistent and one error example sharing the same reference frame, and
+the edit mask serves as the localization label.
+
+\textbf{Splits and size.} We split 80/10/10 \emph{by source video}, so frames of one video never appear
+in two splits. The pilot set has \XX{N} examples (\XX{N/2} consistent, \XX{N/2} errors), of which
+\XX{train/val/test} are train/val/test; errors are \XX{x}\% clothing and \XX{y}\% accessory. About
+\XX{1/3} of sampled pairs survive filtering (\XX{k} lacked a region visible in both frames, \XX{m} edits
+were too subtle). For the encoder, frames are resized to a short side of 224\,px with the aspect ratio
+preserved (long side up to 392\,px, a multiple of the 14\,px patch size) and normalized with ImageNet
+statistics.
+
+\textbf{Limitations.} All current errors are color changes; real errors also include shape changes and
+added or missing accessories. Hair was rarely detected with our prompts.
 
 \section{Approach}
-Describe the steps you have completed so far. If you are implementing an algorithm, you
-should have started the implementation. We would like to see a model description and a training strategy (loss function for instance). Include
-the relevant notation; formulas from the lectures are fine. Name the baseline you are
-comparing against, and cite the methods you build on with \verb+\cite+, e.g.\ ResNet
-\cite{he2016deep} or the Transformer \cite{vaswani2017attention}.
+\textbf{Notation.} A pair is $(x_a, x_b)$ with label $y\in\{0,1\}$, error type $c$, and mask
+$M\in\{0,1\}^{H\times W}$ in $x_b$. The frozen DINOv2-B encoder $f$ maps each frame to a CLS token
+$e\in\mathbb{R}^{768}$ and patch tokens $H=\{h_i\}\in\mathbb{R}^{N\times 768}$.
+
+\textbf{Baselines.} All output an error score, and the decision threshold is chosen on validation:
+\begin{itemize}
+  \item \textbf{B0, color histogram:} $L_1$ distance between global Lab color histograms; no learning.
+  \item \textbf{B1, global DINOv2:} $1-\cos(e_a, e_b)$; no training. This is the kind of global
+  similarity used to score multi-shot consistency~\cite{atzmon2024motion}.
+  \item \textbf{B2, whole-frame classifier:} logistic regression on $[|z_a - z_b|,\, z_a\odot z_b]$,
+  where $z$ concatenates the CLS token and the mean patch token; the regularization strength is
+  tuned on validation.
+  \item \textbf{R1, oracle mask (reference only):} $1-\cos$ of patch features averaged inside the
+  ground-truth mask. It uses the true error location, so it bounds what perfect localization gives
+  rather than being a fair baseline.
+\end{itemize}
+
+\textbf{Proposed model.} A small cross-attention module lets every patch of $x_b$ look up its best
+match in $x_a$, which tolerates pose and viewpoint change:
+$\tilde h_i = \mathrm{softmax}\!\big(\tfrac{(W_q h^b_i)(W_k H^a)^\top}{\sqrt d}\big)\, W_v H^a$, and
+$d_i = \mathrm{MLP}([h^b_i,\ \tilde h_i,\ h^b_i-\tilde h_i])$. A per-patch head gives the heatmap
+$\hat m_i=\sigma(w_m^\top d_i)$; attention pooling over $d_i$ gives the error probability $\hat y$ and
+type logits $\hat c$. We train with
+\begin{equation}
+\mathcal{L} = \mathrm{BCE}(\hat y, y) + \lambda_t\, y\,\mathrm{CE}(\hat c, c)
+ + \lambda_m\, y\,\big[\mathrm{BCE}(\hat m, M) + \mathrm{Dice}(\hat m, M)\big]
+ + \lambda_c\, \mathcal{L}_{\text{con}},
+\end{equation}
+where $\mathcal{L}_{\text{con}} = (1-y)\,\|\bar h^a_M-\bar h^b_M\|^2 + y\,\max(0,\ \mu - \|\bar h^a_M-\bar h^b_M\|)^2$
+is a contrastive loss on the region features $\bar h_M$ (pooled inside $M$, after the comparison
+module), pulling matching regions together in consistent pairs and pushing them apart in error pairs.
+We will use AdamW, train only the comparison module and heads, and select checkpoints by validation F1.
+\XX{Status: the module and losses are implemented; training has not started.}
 
 \paragraph{Remaining work.}
-Describe precisely the remaining work you expect to complete before the final report,
-and in what order, so that the TAs can give you feedback on the plan. Be brief: a short
-paragraph or a few bullet points is enough.
+(1) Train the cross-attention model on the pilot set and compare it with B0--B2 (same test pairs).
+(2) Make errors harder and more realistic: Stable Diffusion inpainting~\cite{rombach2022high} for shape
+and texture changes, removed or added accessories, and inpainted no-error examples, to rule out
+artifact shortcuts.
+(3) Scale to ${\sim}$20k pairs on AWS with more videos, including more of our own AI clips.
+(4) Build a small hand-labeled test set of \emph{natural} errors by generating the same character in
+separate shots, and report results on it separately.
+(5) Ablate contrastive loss, cross-attention, and inpainted negatives; report macro-F1 over error types
+and IoU of the heatmap with $M$.
+(6) Stretch goal: reference-guided repair of detected regions.
 
 \section{Partial Results}
-Report whatever you have run so far, even if preliminary: the data you have collected and
-processed, the performance of the baseline you have implemented and evaluated, and
-preliminary results of your own method, if any. State your primary metric and report it
-on held-out data rather than the training set. A small table such as
-Table~\ref{tab:results} or a single figure is enough at this stage; see the commented-out
-block below for how to include a figure. If a result is surprising or an assumption did
-not hold, say so briefly and explain what you will change.
+\textbf{Data.} The pipeline runs end to end on a Colab T4 (about 2\,min per video) and produced the
+pilot set in Section~2. \XX{Figure~\ref{fig:examples} shows generated pairs.}
+% TODO: export 2-3 rows of contact_sheet.jpg as examples.png and uncomment.
+% \begin{figure}[h]
+%   \centering
+%   \includegraphics[width=0.85\linewidth]{examples.png}
+%   \caption{Generated pairs: reference frame, edited frame (synthetic error), and edit mask.}
+%   \label{fig:examples}
+% \end{figure}
+
+\textbf{Baselines.} Our primary metric is F1 for error detection on the \emph{test} split (held-out
+videos), with thresholds chosen on validation (Table~\ref{tab:results}).
 
 \begin{table}[h]
   \centering
-  \begin{tabular}{lc}
+  \small
+  \begin{tabular}{lcccc}
     \toprule
-    Method & Validation accuracy \\
+    Method & F1 & Precision & Recall & AUROC \\
     \midrule
-    Baseline   & 0.71 \\
-    Our method & 0.74 \\
+    B0 color histogram          & \XX{--} & \XX{--} & \XX{--} & \XX{--} \\
+    B1 global DINOv2 (no train) & \XX{--} & \XX{--} & \XX{--} & \XX{--} \\
+    B2 whole-frame logistic reg.& \XX{--} & \XX{--} & \XX{--} & \XX{--} \\
+    \midrule
+    R1 oracle-mask DINOv2       & \XX{--} & \XX{--} & \XX{--} & \XX{--} \\
     \bottomrule
   \end{tabular}
-  \caption{Example results table. Replace with your own numbers and metric.}
+  \caption{Error detection on the pilot test split (\XX{n} pairs from \XX{v} held-out videos).
+  R1 uses the ground-truth mask and is a reference, not a baseline.}
   \label{tab:results}
 \end{table}
 
-% \begin{figure}[h]
-%   \centering
-%   \includegraphics[width=0.6\linewidth]{training_curve.pdf}
-%   \caption{Training and validation loss per epoch for the baseline.}
-%   \label{fig:curve}
-% \end{figure}
+\XX{Discussion to write once numbers are in: (a) how close the global baselines get, which tells us
+how easy pure color edits are; (b) recall by edit strength $\Delta E$ (results.json, recall\_by\_dE),
+i.e.\ whether subtle changes are missed; (c) the gap between B1/B2 and R1, which is the room a model
+that localizes the change can capture. If even B0 is near-perfect, say so: the synthetic color-only
+task is too easy, which motivates the harder inpainted errors in Remaining Work.}
 
 \section*{References}
-References do not count toward the page limit.
-Include the papers you cite above, the dataset, and any code or libraries you build on.
-% Acceptable formats
-% include MLA, APA, and IEEE; any style is fine as long as it is consistent and each entry
-% has author(s), title, venue, publisher, and year.
-
-% The list below is generated by BibTeX from references.bib; run
-% "latexmk -pdf main.tex" (or pdflatex, bibtex, pdflatex, pdflatex).
-\renewcommand{\bibsection}{}   % the "References" heading is already typeset above
 \medskip
 {\small
+\renewcommand{\bibsection}{}
 \bibliographystyle{plainnat}
 \bibliography{references}
 }
